@@ -3,6 +3,7 @@ import board
 import gc
 import displayio
 import terminalio
+import supervisor
 from adafruit_matrixportal.matrixportal import MatrixPortal
 from adafruit_display_text import label
 
@@ -14,7 +15,19 @@ matrixportal = MatrixPortal(
     rotation=270,
 )
 
-display = matrixportal.display
+matrixportal.network.connect()
+res = matrixportal.network.requests.get("http://worldtimeapi.org/api/timezone/Europe/Copenhagen").json()
+t = time.localtime(res['unixtime'] + res['raw_offset'] + res['dst_offset'])
+
+import rtc
+r = rtc.RTC()
+r.datetime = t
+print(time.localtime())
+
+del rtc
+del r
+del t
+del res
 
 group = displayio.Group()
 
@@ -26,6 +39,7 @@ train_file = open("/train.bmp", "rb")
 train = displayio.OnDiskBitmap(train_file)
 del train_file
 
+display = matrixportal.display
 display.show(group)
 # matrixportal.add_text(
 #     text_position=(1, 31),
@@ -100,9 +114,16 @@ test_data = [
     },
 ]
 
+last_check = time.localtime().tm_hour
+reset_hour = 4
+
 while True:
     #pass
     #display_stops(test_data)
+    t = time.localtime()
+    last_check = t.tm_hour
+    if last_check != t.tm_hour and t.tm_hour == reset_hour:
+        supervisor.reload()
     try:
         matrixportal.network.connect()
         res = matrixportal.network.requests.get(endpoint)
