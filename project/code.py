@@ -22,7 +22,6 @@ t = time.localtime(res['unixtime'] + res['raw_offset'] + res['dst_offset'])
 import rtc
 r = rtc.RTC()
 r.datetime = t
-print(time.localtime())
 
 del rtc
 del r
@@ -127,11 +126,11 @@ while True:
     try:
         matrixportal.network.connect()
         res = matrixportal.network.requests.get(endpoint)
-        print(res.json())
         display_stops(res.json())
 
     except Exception as e:
-        print("Some error occured, retrying! -", e)
+        #print("Some error occured, retrying! -", e)
+        pass
 
     time.sleep(30)  # wait 30 seconds
     gc.collect()
