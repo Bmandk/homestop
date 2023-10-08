@@ -84,7 +84,7 @@ def display_stops(data):
         
     display.show(group)
 
-endpoint = "http://185.17.144.187:3001/departures?stops=705,706&lines=F,2A&directions=Hellerup%20St.,Refshale%C3%B8en"
+endpoint = "https://homestop.azurewebsites.net/api/departures?stops=8600641,706&lines=F,2A&directions=Hellerup%20St.,Refshale%C3%B8en"
 
 test_data = [
     {

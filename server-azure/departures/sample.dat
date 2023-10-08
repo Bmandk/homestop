@@ -1,3 +1,5 @@
 {
-    "name": "Azure"
+    "stops": "705,706",
+    "lines": "F,2A",
+    "directions": "Hellerup St.,Refshaleøen"
 }

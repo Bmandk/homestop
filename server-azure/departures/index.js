@@ -5,33 +5,42 @@ const util = require('util');
 xml2js.promise = util.promisify(xml2js);
 
 
-async function getStopInfo(context, stop) {
-    let endpoint = 'http://xmlopen.rejseplanen.dk/bin/rest.exe/departureBoard?id=' + stop
-
-    let response = await request(endpoint, {});
-
-    jsonResult = await xml2js.promise(response);
-    let l = jsonResult.DepartureBoard.Departure.map(departure => {
-        return departure.$
-    });
-    return l;
+async function getDepartures(stops) {
+    let endpoint = 'http://xmlopen.rejseplanen.dk/bin/rest.exe/multiDepartureBoard?format=json'
+    for (let i = 0; i < stops.length; i++) {
+        endpoint = endpoint + "&id" + (i + 1) + "=" + stops[i]
+    }
+    let response = await request(endpoint, {json: true});
+    return response["MultiDepartureBoard"]["Departure"];
 }
 
-async function updateStop(stop) {
-    await getStopInfo(stop, (info) => {
-        cache[stop] = info
+function transformDeparture(departure) {
+    let date = departure.rtDate ? departure.rtDate : departure.date
+    let time = departure.rtTime ? departure.rtTime : departure.time
+    dateTime = moment(date + " " + time, "DD.MM.YY hh:mm")
+    let minutes = Math.trunc((dateTime - moment()) / 1000 / 60)
+    
+    let transformedStop = {
+        line: departure.line,
+        minutes: minutes
+    }
+
+    return transformedStop;
+}
+
+function transformDepartures(departures) {
+    return departures.map((departure) => transformDeparture(departure));
+}
+
+function filterDepartures(departures, lines, directions) {
+    return departures.filter((departure) => {
+        return lines.includes(departure.line) && directions.includes(departure.direction);
     })
 }
 
-async function getStops(context, stops, callback) {
-    let l = []
-    context.log(stops.length)
-    for (let i = 0; i < stops.length; i++) {
-        let stopInfo = await getStopInfo(context, stops[i]);
-        context.log(stopInfo);
-        l.push(stopInfo)
-    }
-    return l;
+function sortTransformedDeparturesByMinutes(transformedDepartures) {
+    transformedDepartures.sort((a, b) => a.minutes > b.minutes ? 1 : -1)
+    return transformedDepartures;
 }
 
 const findStopInfo = async (req, res) => {
@@ -71,16 +80,25 @@ const findStopInfo = async (req, res) => {
     }
 }
 
+async function getFinalTimetable(req) {
+    let stops = req.query.stops.split(',')
+    let directions = req.query.directions.split(',')
+    let lines = req.query.lines.split(',')
+
+    let departures = await getDepartures(stops);
+    let filteredDepartures = filterDepartures(departures, lines, directions);
+    let transformedDepartures = transformDepartures(filteredDepartures);
+    transformedDepartures = transformedDepartures.filter(departure => departure.minutes >= 0);
+
+    let finalList = sortTransformedDeparturesByMinutes(transformedDepartures);
+
+    return finalList;
+}
+
 module.exports = async function (context, req) {
     context.log('JavaScript HTTP trigger function processed a request.');
 
-    const name = (req.query.name || (req.body && req.body.name));
-    const responseMessage = name
-        ? "Hello, " + name + ". This HTTP triggered function executed successfully."
-        : "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.";
-
-    jsonData = await getStops(context, req.query.stops.split(','));
-    context.log("Root")
+    jsonData = await getFinalTimetable(req);
 
     context.res = {
         // status: 200, /* Defaults to 200 */
